@@ -91,6 +91,49 @@
             color: #ffcc80; /* Warning color */
             font-weight: bold;
         }
+
+        /* Full Screen Styles */
+        .fullscreen-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95); /* Darker overlay for full screen */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* Ensure it's on top */
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .fullscreen-message {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            color: #ffcc80; /* Accent color for fullscreen message */
+        }
+
+        .fullscreen-countdown {
+            font-size: 4rem;
+            margin-bottom: 30px;
+        }
+
+        #exitFullscreenButton {
+            background-color: #e0e0e0; /* Light button for exit */
+            color: #121212; /* Dark text for exit button */
+            padding: 15px 30px;
+            font-size: 1.2rem;
+        }
+
+        #exitFullscreenButton:hover {
+            background-color: #f0f0f0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -108,15 +151,27 @@
         <div id="message" style="display: none;"></div>
     </div>
 
+    <!-- Fullscreen Overlay (initially hidden) -->
+    <div id="fullscreenOverlay" class="fullscreen-overlay hidden">
+        <div class="fullscreen-message">Time's Up!</div>
+        <div class="fullscreen-countdown" id="fullscreenCountdown">00:00</div>
+        <p style="font-size: 1.2rem; margin-bottom: 20px;">It's time to wind down and get ready for sleep. Consider restarting your device now.</p>
+        <button id="exitFullscreenButton">Exit Full Screen</button>
+    </div>
+
     <script>
         const timeInput = document.getElementById('timeInput');
         const startButton = document.getElementById('startButton');
         const countdownDisplay = document.getElementById('countdown');
         const messageDisplay = document.getElementById('message');
+        const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+        const fullscreenCountdownDisplay = document.getElementById('fullscreenCountdown');
+        const exitFullscreenButton = document.getElementById('exitFullscreenButton');
 
         let timerInterval;
         let timeLeft;
         let timerRunning = false;
+        let speechUtterance; // For Text-to-Speech
 
         function startTimer() {
             if (timerRunning) return; // Prevent starting multiple timers
@@ -144,6 +199,7 @@
             timeInput.disabled = false;
             countdownDisplay.textContent = "--:--";
             messageDisplay.style.display = 'none';
+            exitFullScreenMode(); // Exit fullscreen if timer is stopped manually
         }
 
         function updateTimer() {
@@ -158,7 +214,7 @@
                 messageDisplay.textContent = "Timer Finished! Consider restarting your device.";
                 messageDisplay.style.display = 'block';
                 triggerNotification();
-                window.location.reload(); // Refresh the page after timer ends
+                enterFullScreen(); // Enter fullscreen when timer ends
                 return;
             }
 
@@ -171,6 +227,7 @@
             const formattedMinutes = String(minutes).padStart(2, '0');
             const formattedSeconds = String(seconds).padStart(2, '0');
             countdownDisplay.textContent = `${formattedMinutes}:${formattedSeconds}`;
+            fullscreenCountdownDisplay.textContent = `${formattedMinutes}:${formattedSeconds}`; // Update fullscreen countdown too
         }
 
         function triggerNotification() {
@@ -192,6 +249,51 @@
             });
         }
 
+        function enterFullScreen() {
+            fullscreenOverlay.classList.remove('hidden');
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            } else if (document.documentElement.mozRequestFullScreen) { /* Firefox */
+                document.documentElement.mozRequestFullScreen();
+            } else if (document.documentElement.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+                document.documentElement.webkitRequestFullscreen();
+            } else if (document.documentElement.msRequestFullscreen) { /* IE/Edge */
+                document.documentElement.msRequestFullscreen();
+            }
+            speakMessage("Time's Up! It's time to wind down and get ready for sleep. Consider restarting your device now."); // Text-to-Speech
+        }
+
+        function exitFullScreenMode() {
+            fullscreenOverlay.classList.add('hidden');
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) { /* Chrome, Safari and Opera */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE/Edge */
+                document.msExitFullscreen();
+            }
+            stopSpeech(); // Stop any ongoing speech when exiting fullscreen
+        }
+
+        function speakMessage(message) {
+            if ('speechSynthesis' in window) {
+                speechUtterance = new SpeechSynthesisUtterance(message);
+                speechSynthesis.speak(speechUtterance);
+            } else {
+                console.log("Text-to-speech is not supported in this browser.");
+            }
+        }
+
+        function stopSpeech() {
+            if (speechSynthesis && speechUtterance && speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+        }
+
+
+        exitFullscreenButton.addEventListener('click', exitFullScreenMode);
 
         startButton.addEventListener('click', () => {
             if (timerRunning) {
